@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户信息 - AI健身教练系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding-top: 2rem;
+            background-color: #f8f9fa;
+        }
+        .form-container {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.3rem;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            margin-top: 2rem;
+            margin-bottom: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <nav class="navbar navbar-expand-lg navbar-light bg-light fixed-top">
+            <div class="container">
+                <a class="navbar-brand" href="index.html">AI健身教练</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav ms-auto">
+                        <li class="nav-item">
+                            <a class="nav-link" href="index.html">首页</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="register.html">注册</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="login.html">登录</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link active" href="user-profile.html">用户信息</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="inquiry.html">健身咨询</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" id="logoutBtn">退出登录</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+
+        <div class="row mt-5">
+            <div class="col-md-12">
+                <div class="alert alert-info" id="welcomeMessage">
+                    欢迎回来，<span id="usernameDisplay"></span>！
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="form-container">
+                    <h3>更新用户数据</h3>
+                    <div id="updateDataAlert" class="alert alert-danger d-none" role="alert"></div>
+                    <div id="updateDataSuccess" class="alert alert-success d-none" role="alert">
+                        数据更新成功！
+                    </div>
+                    <form id="updateDataForm">
+                        <div class="mb-3">
+                            <label for="age" class="form-label">年龄</label>
+                            <input type="number" class="form-control" id="age" name="age" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="height" class="form-label">身高 (厘米)</label>
+                            <input type="number" step="0.1" class="form-control" id="height" name="height" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="weight" class="form-label">体重 (千克)</label>
+                            <input type="number" step="0.1" class="form-control" id="weight" name="weight" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="bodyFatRate" class="form-label">体脂率 (%)</label>
+                            <input type="number" step="0.1" class="form-control" id="bodyFatRate" name="bodyFatRate">
+                        </div>
+                        <button type="submit" class="btn btn-primary">更新数据</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="form-container">
+                    <h3>绑定智能设备</h3>
+                    <div id="bindDeviceAlert" class="alert alert-danger d-none" role="alert"></div>
+                    <div id="bindDeviceSuccess" class="alert alert-success d-none" role="alert">
+                        设备绑定成功！
+                    </div>
+                    <form id="bindDeviceForm">
+                        <div class="mb-3">
+                            <label for="scaleDeviceId" class="form-label">电子秤设备ID</label>
+                            <input type="text" class="form-control" id="scaleDeviceId" name="scaleDeviceId">
+                        </div>
+                        <div class="mb-3">
+                            <label for="speakerDeviceId" class="form-label">智能音箱设备ID</label>
+                            <input type="text" class="form-control" id="speakerDeviceId" name="speakerDeviceId">
+                        </div>
+                        <button type="submit" class="btn btn-primary">绑定设备</button>
+                    </form>
+                </div>
+
+                <div class="form-container">
+                    <h3>通过智能音箱更新数据</h3>
+                    <div id="speakerUpdateAlert" class="alert alert-danger d-none" role="alert"></div>
+                    <div id="speakerUpdateSuccess" class="alert alert-success d-none" role="alert">
+                        数据更新成功！
+                    </div>
+                    <form id="speakerUpdateForm">
+                        <div class="mb-3">
+                            <label for="speakerInput" class="form-label">语音输入模拟</label>
+                            <textarea class="form-control" id="speakerInput" name="speakerInput" rows="3" placeholder="例如：我的体重是75公斤，身高180厘米，体脂率15%"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">提交语音数据</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-light text-center text-lg-start mt-5">
+        <div class="text-center p-3" style="background-color: rgba(0, 0, 0, 0.05);">
+            © 2025 AI健身教练系统
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 检查用户是否已登录
+        document.addEventListener('DOMContentLoaded', function() {
+            const userId = localStorage.getItem('userId');
+            const username = localStorage.getItem('username');
+            const token = localStorage.getItem('token');
+            
+            if (!userId || !token) {
+                window.location.href = 'login.html';
+                return;
+            }
+            
+            // 显示用户名
+            document.getElementById('usernameDisplay').textContent = username;
+            
+            // 获取用户数据
+            fetchUserData(userId, token);
+        });
+        
+        // 获取用户数据
+        function fetchUserData(userId, token) {
+            fetch(`/api/users/${userId}`, {
+                headers: {
+                    'Authorization': token
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success === false && data.message === "无效的token") {
+                    // token无效，清除本地存储并重定向到登录页面
+                    localStorage.removeItem('userId');
+                    localStorage.removeItem('username');
+                    localStorage.removeItem('token');
+                    window.location.href = 'login.html?error=invalid_token';
+                    return;
+                }
+                
+                // 填充表单
+                document.getElementById('age').value = data.age || '';
+                document.getElementById('height').value = data.height || '';
+                document.getElementById('weight').value = data.weight || '';
+                document.getElementById('bodyFatRate').value = data.bodyFatRate || '';
+                document.getElementById('scaleDeviceId').value = data.scaleDeviceId || '';
+                document.getElementById('speakerDeviceId').value = data.speakerDeviceId || '';
+            })
+            .catch(error => {
+                console.error('获取用户数据失败:', error);
+            });
+        }
+        
+        // 更新用户数据
+        document.getElementById('updateDataForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const userId = localStorage.getItem('userId');
+            const token = localStorage.getItem('token');
+            
+            if (!userId || !token) {
+                window.location.href = 'login.html';
+                return;
+            }
+            
+            const updateData = {
+                age: parseInt(document.getElementById('age').value),
+                height: parseFloat(document.getElementById('height').value),
+                weight: parseFloat(document.getElementById('weight').value),
+                bodyFatRate: parseFloat(document.getElementById('bodyFatRate').value) || null
+            };
+            
+            fetch(`/api/users/${userId}/update-data?age=${updateData.age}&height=${updateData.height}&weight=${updateData.weight}&bodyFatRate=${updateData.bodyFatRate}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': token
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success === false && data.message === "无效的token") {
+                    // token无效，清除本地存储并重定向到登录页面
+                    localStorage.removeItem('userId');
+                    localStorage.removeItem('username');
+                    localStorage.removeItem('token');
+                    window.location.href = 'login.html?error=invalid_token';
+                    return;
+                }
+                
+                document.getElementById('updateDataAlert').classList.add('d-none');
+                document.getElementById('updateDataSuccess').classList.remove('d-none');
+                
+                setTimeout(() => {
+                    document.getElementById('updateDataSuccess').classList.add('d-none');
+                }, 3000);
+            })
+            .catch(error => {
+                document.getElementById('updateDataAlert').textContent = '更新数据失败，请重试: ' + error.message;
+                document.getElementById('updateDataAlert').classList.remove('d-none');
+            });
+        });
+        
+        // 绑定设备
+        document.getElementById('bindDeviceForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const userId = localStorage.getItem('userId');
+            const token = localStorage.getItem('token');
+            
+            if (!userId || !token) {
+                window.location.href = 'login.html';
+                return;
+            }
+            
+            const scaleDeviceId = document.getElementById('scaleDeviceId').value;
+            const speakerDeviceId = document.getElementById('speakerDeviceId').value;
+            
+            fetch(`/api/users/${userId}/bind-devices?scaleDeviceId=${scaleDeviceId}&speakerDeviceId=${speakerDeviceId}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': token
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success === false && data.message === "无效的token") {
+                    // token无效，清除本地存储并重定向到登录页面
+                    localStorage.removeItem('userId');
+                    localStorage.removeItem('username');
+                    localStorage.removeItem('token');
+                    window.location.href = 'login.html?error=invalid_token';
+                    return;
+                }
+                
+                document.getElementById('bindDeviceAlert').classList.add('d-none');
+                document.getElementById('bindDeviceSuccess').classList.remove('d-none');
+                
+                setTimeout(() => {
+                    document.getElementById('bindDeviceSuccess').classList.add('d-none');
+                }, 3000);
+            })
+            .catch(error => {
+                document.getElementById('bindDeviceAlert').textContent = '绑定设备失败，请重试: ' + error.message;
+                document.getElementById('bindDeviceAlert').classList.remove('d-none');
+            });
+        });
+        
+        // 通过智能音箱更新数据
+        document.getElementById('speakerUpdateForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const userId = localStorage.getItem('userId');
+            const token = localStorage.getItem('token');
+            
+            if (!userId || !token) {
+                window.location.href = 'login.html';
+                return;
+            }
+            
+            const speakerInput = document.getElementById('speakerInput').value;
+            
+            fetch(`/api/users/${userId}/update-from-speaker?speakerInput=${encodeURIComponent(speakerInput)}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': token
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success === false && data.message === "无效的token") {
+                    // token无效，清除本地存储并重定向到登录页面
+                    localStorage.removeItem('userId');
+                    localStorage.removeItem('username');
+                    localStorage.removeItem('token');
+                    window.location.href = 'login.html?error=invalid_token';
+                    return;
+                }
+                
+                document.getElementById('speakerUpdateAlert').classList.add('d-none');
+                document.getElementById('speakerUpdateSuccess').classList.remove('d-none');
+                
+                // 更新表单数据
+                if (data.height) document.getElementById('height').value = data.height;
+                if (data.weight) document.getElementById('weight').value = data.weight;
+                if (data.bodyFatRate) document.getElementById('bodyFatRate').value = data.bodyFatRate;
+                
+                setTimeout(() => {
+                    document.getElementById('speakerUpdateSuccess').classList.add('d-none');
+                }, 3000);
+            })
+            .catch(error => {
+                document.getElementById('speakerUpdateAlert').textContent = '更新数据失败，请重试: ' + error.message;
+                document.getElementById('speakerUpdateAlert').classList.remove('d-none');
+            });
+        });
+        
+        // 退出登录
+        document.getElementById('logoutBtn').addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            const userId = localStorage.getItem('userId');
+            const token = localStorage.getItem('token');
+            
+            if (userId && token) {
+                fetch('/api/auth/logout', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': token
+                    }
+                })
+                .then(() => {
+                    // 清除本地存储
+                    localStorage.removeItem('userId');
+                    localStorage.removeItem('username');
+                    localStorage.removeItem('token');
+                    
+                    // 跳转到登录页面
+                    window.location.href = 'login.html';
+                })
+                .catch(error => {
+                    console.error('退出登录失败:', error);
+                    // 仍然清除本地存储并跳转
+                    localStorage.removeItem('userId');
+                    localStorage.removeItem('username');
+                    localStorage.removeItem('token');
+                    window.location.href = 'login.html';
+                });
+            } else {
+                window.location.href = 'login.html';
+            }
+        });
+    </script>
+</body>
+</html> 

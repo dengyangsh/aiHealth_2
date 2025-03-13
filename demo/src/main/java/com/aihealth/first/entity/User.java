@@ -16,6 +16,9 @@ public class User {
     private String username; // 用户名
 
     @Column(nullable = false)
+    private String password; // 密码
+
+    @Column(nullable = false)
     private Integer age; // 用户年龄
 
     @Column(nullable = false)

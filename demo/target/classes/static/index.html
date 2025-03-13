@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI健身教练系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding-top: 2rem;
+            background-color: #f8f9fa;
+        }
+        .jumbotron {
+            background-color: #e9ecef;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            border-radius: 0.3rem;
+        }
+        .feature-box {
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            background-color: white;
+            border-radius: 0.3rem;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            transition: transform 0.3s;
+        }
+        .feature-box:hover {
+            transform: translateY(-5px);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <nav class="navbar navbar-expand-lg navbar-light bg-light fixed-top">
+            <div class="container">
+                <a class="navbar-brand" href="index.html">AI健身教练</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav ms-auto">
+                        <li class="nav-item">
+                            <a class="nav-link active" href="index.html">首页</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="register.html">注册</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="login.html">登录</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="user-profile.html">用户信息</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="inquiry.html">健身咨询</a>
+                        </li>
+                        <li class="nav-item" id="logoutItem" style="display: none;">
+                            <a class="nav-link" href="#" id="logoutBtn">退出登录</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+
+        <div class="jumbotron mt-5">
+            <h1 class="display-4">欢迎使用AI健身教练系统</h1>
+            <p class="lead">基于人工智能的个性化健身指导和饮食建议</p>
+            <hr class="my-4">
+            <p>通过智能设备收集数据，AI分析您的健身需求，为您提供专业的健身计划和饮食建议。</p>
+            <div id="notLoggedInButtons">
+                <a class="btn btn-primary btn-lg" href="register.html" role="button">立即注册</a>
+                <a class="btn btn-success btn-lg ms-2" href="login.html" role="button">登录系统</a>
+            </div>
+            <div id="loggedInMessage" style="display: none;">
+                <p class="alert alert-success">您已登录，欢迎 <span id="usernameDisplay"></span>！</p>
+                <a class="btn btn-primary btn-lg" href="user-profile.html" role="button">管理个人信息</a>
+                <a class="btn btn-success btn-lg ms-2" href="inquiry.html" role="button">开始健身咨询</a>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-4">
+                <div class="feature-box">
+                    <h3>用户管理</h3>
+                    <p>注册账号，管理个人信息，绑定智能设备。</p>
+                    <a href="register.html" class="btn btn-outline-primary">注册账号</a>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="feature-box">
+                    <h3>数据上传</h3>
+                    <p>上传您的身体数据，包括身高、体重、体脂率等。</p>
+                    <a href="user-profile.html" class="btn btn-outline-primary">管理数据</a>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="feature-box">
+                    <h3>智能咨询</h3>
+                    <p>向AI健身教练咨询健身和饮食问题，获取专业建议。</p>
+                    <a href="inquiry.html" class="btn btn-outline-primary">开始咨询</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-light text-center text-lg-start mt-5">
+        <div class="text-center p-3" style="background-color: rgba(0, 0, 0, 0.05);">
+            © 2025 AI健身教练系统
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 检查用户是否已登录
+        document.addEventListener('DOMContentLoaded', function() {
+            const userId = localStorage.getItem('userId');
+            const username = localStorage.getItem('username');
+            const token = localStorage.getItem('token');
+            
+            if (userId && username && token) {
+                // 用户已登录
+                document.getElementById('logoutItem').style.display = 'block';
+                document.getElementById('notLoggedInButtons').style.display = 'none';
+                document.getElementById('loggedInMessage').style.display = 'block';
+                document.getElementById('usernameDisplay').textContent = username;
+            }
+        });
+        
+        // 退出登录
+        document.getElementById('logoutBtn').addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            const userId = localStorage.getItem('userId');
+            const token = localStorage.getItem('token');
+            
+            if (userId && token) {
+                fetch('/api/auth/logout', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': token
+                    }
+                })
+                .then(() => {
+                    // 清除本地存储
+                    localStorage.removeItem('userId');
+                    localStorage.removeItem('username');
+                    localStorage.removeItem('token');
+                    
+                    // 刷新页面
+                    window.location.reload();
+                })
+                .catch(error => {
+                    console.error('退出登录失败:', error);
+                    // 仍然清除本地存储并刷新
+                    localStorage.removeItem('userId');
+                    localStorage.removeItem('username');
+                    localStorage.removeItem('token');
+                    window.location.reload();
+                });
+            }
+        });
+    </script>
+</body>
+</html> 
