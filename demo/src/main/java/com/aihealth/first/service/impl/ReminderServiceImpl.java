@@ -33,11 +33,13 @@ public class ReminderServiceImpl implements ReminderService {
     public void remindToBuyFood() {
         List<FitnessCycle> activeCycles = fitnessCycleRepository.findByStatus(FitnessCycle.CycleStatus.ACTIVE);
         for (FitnessCycle cycle : activeCycles) {
-            Optional<CycleDiet> diet = cycleDietRepository.findByCycleId(cycle.getId());
-            diet.ifPresent(cycleDiet -> {
-                // 这里添加提醒用户购买食物的逻辑
-                System.out.println("提醒用户购买食物: " + cycleDiet.getDietContent());
-            });
+            List<CycleDiet> diets = cycleDietRepository.findByCycleId(cycle.getId());
+            if (!diets.isEmpty()) {
+                for (CycleDiet diet : diets) {
+                    // 这里添加提醒用户购买食物的逻辑
+                    System.out.println("提醒用户购买食物: " + diet.getDietContent());
+                }
+            }
         }
     }
 
@@ -48,21 +50,23 @@ public class ReminderServiceImpl implements ReminderService {
         List<FitnessCycle> activeCycles = fitnessCycleRepository.findByStatus(FitnessCycle.CycleStatus.ACTIVE);
         LocalDateTime now = LocalDateTime.now();
         for (FitnessCycle cycle : activeCycles) {
-            Optional<CycleExercise> exercise = cycleExerciseRepository.findByCycleId(cycle.getId());
-            exercise.ifPresent(cycleExercise -> {
-                // 从 exerciseDate 和 exerciseTime 组合成 LocalDateTime
-                if (cycleExercise.getExerciseDate() != null && cycleExercise.getExerciseTime() != null) {
-                    LocalDateTime plannedExerciseTime = LocalDateTime.of(
-                            cycleExercise.getExerciseDate(), 
-                            cycleExercise.getExerciseTime()
-                    );
-                    
-                    if (now.isAfter(plannedExerciseTime.minusMinutes(5)) && now.isBefore(plannedExerciseTime.plusMinutes(5))) {
-                        // 这里添加提醒用户运动的逻辑
-                        System.out.println("提醒用户运动: " + cycleExercise.getExerciseContent());
+            List<CycleExercise> exercises = cycleExerciseRepository.findByCycleId(cycle.getId());
+            if (!exercises.isEmpty()) {
+                for (CycleExercise exercise : exercises) {
+                    // 从 exerciseDate 和 exerciseTime 组合成 LocalDateTime
+                    if (exercise.getExerciseDate() != null && exercise.getExerciseTime() != null) {
+                        LocalDateTime plannedExerciseTime = LocalDateTime.of(
+                                exercise.getExerciseDate(), 
+                                exercise.getExerciseTime()
+                        );
+                        
+                        if (now.isAfter(plannedExerciseTime.minusMinutes(5)) && now.isBefore(plannedExerciseTime.plusMinutes(5))) {
+                            // 这里添加提醒用户运动的逻辑
+                            System.out.println("提醒用户运动: " + exercise.getExerciseContent());
+                        }
                     }
                 }
-            });
+            }
         }
     }
 } 

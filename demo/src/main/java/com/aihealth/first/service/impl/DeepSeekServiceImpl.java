@@ -32,6 +32,8 @@ public class DeepSeekServiceImpl implements DeepSeekService {
     @Override
     public String getDeepSeekResponse(String systemPrompt, String userPrompt, String questionString, Long userId) {
         String model = "deepseek-chat"; // 使用DeepSeek的模型
+        // String model = "deepseek-reasoner"; // 使用DeepSeek的模型
+
         Date requestTime = new Date(); // 请求时间
         long startTime = System.currentTimeMillis(); // 开始时间
         String requestType = "deepSeekApi"; // 请求类型标识

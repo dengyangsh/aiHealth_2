@@ -10,9 +10,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.aihealth.first.dto.CycleDietDto;
+import com.aihealth.first.dto.CycleExerciseDto;
+import com.aihealth.first.dto.FitnessCycleDto;
+import com.aihealth.first.dto.UserDto;
 import com.aihealth.first.entity.CycleDiet;
 import com.aihealth.first.entity.CycleExercise;
 import com.aihealth.first.entity.FitnessCycle;
@@ -52,12 +57,14 @@ public class InquiryServiceImpl implements InquiryService {
 
     private static String source = "deepseekapi";
 
-    private static final String PROMPT_INSTRUCTIONS = "对问题进行理解，结合用户的相关信息按照下面的要求进行处理。\n" +
+    private static final String PROMPT_INSTRUCTIONS = "你是一个温柔专业的健身教练，对问题进行理解，结合用户的相关信息按照下面的要求进行处理。\n" +
             "1、如果是生成、修改、调整、变化等等此类的问题：questionType为调整修改;其他场景：questionType为普通提问。\n" +
             "2、如果客户要生成运动计划，没有指定运动天数则生成7天，如果客户指定天数超过7天也生成7天。\n" +
-            "3、生成了几天的健身计划，就需要补充每天的饮食和运动，不能只是一天。\n" +
-            "4、如果用户问的是非健身问题，请更加温柔，细致的回答,尽量是对话询问式的,回答的内容放在answer字段里面；如果是健身问题，请更加专业，回答的内容放在answer字段里面，控制下回答的长度，不要超过500字\n" +
-            "5、严格按照要求的返回格式：(一个cycleExercise和cycleDiet是一个数组,对应了一个fitnessCycle运动周期内所有的运动和饮食记录,)";
+            "3、生成了几天的健身计划，就需要生成几天的饮食和运动；cycleDiet里的数据如果一个dietContent里面如果有2个食物，则需要生成2条记录，一个dietContent里面不能有2种食物！ 一个exerciseContent里面如果有2个运动，则需要生成2条记录！\n" +
+            "4、如果用户问的是非健身问题，请更加温柔，细致的回答,尽量是对话询问式的,回答的内容放在answer字段里面；如果是健身问题，请更加专业，回答的内容放在answer字段里面，控制下回答的长度，不要超过500字，不低于50字\n"
+            +
+            "5、对比用户数据的json和输出的json，没有变化的key值一定不要输出！ json里面的fitnessCycle和user可以直接对比键值对；json里面的cycleDiet和cycleExercise是数组，对比时候id相同的才能做对比\n"+
+            "6、严格按照要求的返回格式：(一个cycleExercise和cycleDiet是一个数组,对应了一个fitnessCycle运动周期内所有的运动和饮食记录,)";
 
     /**
      * 处理用户的健康咨询请求。根据用户ID查询用户信息和当前活跃的健身周期，
@@ -78,15 +85,15 @@ public class InquiryServiceImpl implements InquiryService {
             if (activeCycle.isPresent()) {
                 // 查询饮食和运动计划
                 FitnessCycle cycle = activeCycle.get();
-                Optional<CycleDiet> dietOptional = cycleDietRepository.findByCycleId(cycle.getId());
-                Optional<CycleExercise> exerciseOptional = cycleExerciseRepository.findByCycleId(cycle.getId());
+                List<CycleDiet> dietList = cycleDietRepository.findByCycleId(cycle.getId());
+                List<CycleExercise> exerciseList = cycleExerciseRepository.findByCycleId(cycle.getId());
 
                 String systemPrompt = formatEntitySystemPrompt();
 
                 // 使用新的格式化方法构建提示字符串
                 String userPrompt = formatEntityUserPrompt(user, cycle,
-                        dietOptional.orElse(null),
-                        exerciseOptional.orElse(null));
+                        dietList,
+                        exerciseList);
                 String modelResponse = getModelResponse(userId, question, systemPrompt, userPrompt);
                 return processModelResponse(modelResponse, userId);
             }
@@ -96,7 +103,6 @@ public class InquiryServiceImpl implements InquiryService {
             String systemPrompt = formatEntitySystemPrompt();
             String userPrompt = formatEntityUserPrompt(user, null, null, null);
             String modelResponse = getModelResponse(userId, question, systemPrompt, userPrompt);
-            // String modelResponse = "{\"fitnessCycle\": {\"durationDays\": 1, \"goal\": \"减脂\", \"endWeight\": 79.5, \"startTime\": \"2025-03-13\", \"startWeight\": 80.0, \"endTime\": \"2025-03-13\"}, \"cycleDiet\": [{\"dietDescription\": \"高蛋白低脂肪早餐\", \"mealTime\": \"BREAKFAST\", \"cookingMethod\": \"煮\", \"dietContent\": \"鸡蛋白2个，全麦面包1片\", \"foodDate\": \"2025-03-13\", \"calories\": 200.0, \"foodCategory\": \"蛋白质\", \"foodQuantity\": 150.0 }, {\"dietDescription\": \"富含纤维的午餐\", \"mealTime\": \"LUNCH\", \"cookingMethod\": \"蒸\", \"dietContent\": \"鸡胸肉100克，胡萝卜100克，糙米饭100克\", \"foodDate\": \"2025-03-13\", \"calories\": 350.0, \"foodCategory\": \"蛋白质\", \"foodQuantity\": 300.0 }, {\"dietDescription\": \"轻食晚餐\", \"mealTime\": \"DINNER\", \"cookingMethod\": \"烤\", \"dietContent\": \"三文鱼100克，菠菜100克\", \"foodDate\": \"2025-03-13\", \"calories\": 300.0, \"foodCategory\": \"蛋白质\", \"foodQuantity\": 200.0 } ], \"question\": {\"answer\": \"已为您生成1天的健身计划，饮食中已避免白菜，替换为胡萝卜。\", \"questionType\": \"调整修改\"}, \"cycleExercise\": [{\"exerciseTime\": \"08:00:00\", \"durationMinutes\": 30, \"caloriesBurned\": 200.0, \"exerciseDescription\": \"早晨有氧运动\", \"exerciseContent\": \"慢跑\", \"exerciseDate\": \"2025-03-13\"}, {\"exerciseTime\": \"18:00:00\", \"durationMinutes\": 45, \"caloriesBurned\": 300.0, \"exerciseDescription\": \"晚间力量训练\", \"exerciseContent\": \"哑铃训练\", \"exerciseDate\": \"2025-03-13\"} ], \"user\": {\"bodyFatRate\": 28.0, \"weight\": 80.0, \"age\": 33, \"height\": 177.0 } }";
             return processModelResponse(modelResponse, userId);
         }
 
@@ -106,7 +112,7 @@ public class InquiryServiceImpl implements InquiryService {
     private String getModelResponse(Long userId, String question, String systemPrompt, String userPrompt) {
         String modelResponse = "";
         if (source.equals("deepseekapi")) {
-            modelResponse = deepSeekService.getDeepSeekResponse(systemPrompt, userPrompt,question,userId);
+            modelResponse = deepSeekService.getDeepSeekResponse(systemPrompt, userPrompt, question, userId);
         } else {
             modelResponse = ollamaService.getPromptResponse(systemPrompt, userPrompt, question, userId);
         }
@@ -123,7 +129,8 @@ public class InquiryServiceImpl implements InquiryService {
      * @param question 用户问题
      * @return 格式化的提示字符串
      */
-    public String formatEntityUserPrompt(User user, FitnessCycle cycle, CycleDiet diet, CycleExercise exercise) {
+    public String formatEntityUserPrompt(User user, FitnessCycle cycle, List<CycleDiet> diets,
+            List<CycleExercise> exercises) {
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
         objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
@@ -134,10 +141,36 @@ public class InquiryServiceImpl implements InquiryService {
             // 2. 用户的相关信息
             promptBuilder.append("当前用户的相关信息：");
             Map<String, Object> userInfo = new HashMap<>();
-            userInfo.put("user", user);
-            userInfo.put("fitnessCycle", cycle);
-            userInfo.put("cycleDiet", diet);
-            userInfo.put("cycleExercise", exercise);
+            UserDto userDto = new UserDto();
+            BeanUtils.copyProperties(user, userDto);
+            userInfo.put("user", userDto);
+
+            if(cycle != null){
+                FitnessCycleDto fitnessCycleDto = new FitnessCycleDto();
+                BeanUtils.copyProperties(cycle, fitnessCycleDto);
+                userInfo.put("fitnessCycle", fitnessCycleDto);
+            }
+
+            if(diets != null){
+                List<CycleDietDto> cycleDietDtoList = new ArrayList<>();
+                for (CycleDiet diet : diets) {
+                    CycleDietDto cycleDietDto = new CycleDietDto();
+                    BeanUtils.copyProperties(diet, cycleDietDto);
+                    cycleDietDtoList.add(cycleDietDto);
+                }
+                userInfo.put("cycleDiet", cycleDietDtoList);
+            }
+
+            if(exercises != null){
+                List<CycleExerciseDto> cycleExerciseDtoList = new ArrayList<>();
+                for (CycleExercise exercise : exercises) {
+                    CycleExerciseDto cycleExerciseDto = new CycleExerciseDto();
+                    BeanUtils.copyProperties(exercise, cycleExerciseDto);
+                    cycleExerciseDtoList.add(cycleExerciseDto);
+                }
+                userInfo.put("cycleExercise", cycleExerciseDtoList);
+            }
+
             promptBuilder.append(objectMapper.writeValueAsString(userInfo));
             promptBuilder.append("\n\n");
 
@@ -222,7 +255,7 @@ public class InquiryServiceImpl implements InquiryService {
         format.put("durationDays", "健身周期持续时间（天），Integer类型");
         format.put("goal", "健身周期的目标，String类型");
         format.put("startWeight", "健身周期开始体重，Double类型");
-        format.put("endWeight", "健身周期结束体重，Double类型");
+        // format.put("endWeight", "健身周期结束体重，Double类型");
         return format;
     }
 
@@ -232,7 +265,7 @@ public class InquiryServiceImpl implements InquiryService {
     private List<Map<String, String>> createCycleExerciseFormat() {
         List<Map<String, String>> formats = new ArrayList<>();
         Map<String, String> format = new HashMap<>();
-        // format.put("id", "运动记录ID，Long类型");
+        format.put("id", "运动记录ID，Long类型");
         // format.put("cycleId", "健身周期ID，Long类型，不能为空");
         format.put("exerciseDate", "运动日期，类似2025-03-12日期格式，不能为空");
         format.put("exerciseTime", "运动时间，类似12:00:00时间格式，不能为空");
@@ -251,7 +284,7 @@ public class InquiryServiceImpl implements InquiryService {
     private List<Map<String, String>> createCycleDietFormat() {
         List<Map<String, String>> formats = new ArrayList<>();
         Map<String, String> format = new HashMap<>();
-        // format.put("id", "饮食记录ID，Long类型");
+        format.put("id", "饮食记录ID，Long类型");
         // format.put("cycleId", "健身周期ID，Long类型，不能为空");
         format.put("foodDate", "食物日期，类似2025-03-12日期格式，不能为空");
         format.put("mealTime",
@@ -332,10 +365,30 @@ public class InquiryServiceImpl implements InquiryService {
                     if (responseMap.containsKey("cycleDiet")) {
                         List<Map<String, Object>> dietList = (List<Map<String, Object>>) responseMap.get("cycleDiet");
                         if (dietList != null && !dietList.isEmpty()) {
-                            for (Map<String, Object> dietMap : dietList) {
-                                Optional<CycleDiet> dietOptional = cycleDietRepository.findByCycleId(cycle.getId());
-                                if (dietOptional.isPresent()) {
-                                    updateCycleDietIfNeeded(dietOptional.get(), dietMap);
+                            List<CycleDiet> existingDiets = cycleDietRepository.findByCycleId(cycle.getId());
+
+                            if (!existingDiets.isEmpty()) {
+                                // 如果已有饮食记录，更新第一条记录
+                                for (Map<String, Object> dietMap : dietList) {
+                                    // 检查是否有匹配的饮食记录（根据日期和用餐时间）
+                                    boolean found = false;
+                                    for (CycleDiet existingDiet : existingDiets) {
+                                        if (matchesDietRecord(existingDiet, dietMap)) {
+                                            updateCycleDietIfNeeded(existingDiet, dietMap);
+                                            found = true;
+                                            break;
+                                        }
+                                    }
+
+                                    // 如果没有找到匹配的记录，创建新记录
+                                    if (!found) {
+                                        createCycleDiet(cycle.getId(), dietMap);
+                                    }
+                                }
+                            } else {
+                                // 如果没有饮食记录，创建新记录
+                                for (Map<String, Object> dietMap : dietList) {
+                                    createCycleDiet(cycle.getId(), dietMap);
                                 }
                             }
                         }
@@ -343,12 +396,34 @@ public class InquiryServiceImpl implements InquiryService {
 
                     // 处理运动记录的修改
                     if (responseMap.containsKey("cycleExercise")) {
-                        List<Map<String, Object>> exerciseList = (List<Map<String, Object>>) responseMap.get("cycleExercise");
+                        List<Map<String, Object>> exerciseList = (List<Map<String, Object>>) responseMap
+                                .get("cycleExercise");
                         if (exerciseList != null && !exerciseList.isEmpty()) {
-                            for (Map<String, Object> exerciseMap : exerciseList) {
-                                Optional<CycleExercise> exerciseOptional = cycleExerciseRepository.findByCycleId(cycle.getId());
-                                if (exerciseOptional.isPresent()) {
-                                    updateCycleExerciseIfNeeded(exerciseOptional.get(), exerciseMap);
+                            List<CycleExercise> existingExercises = cycleExerciseRepository
+                                    .findByCycleId(cycle.getId());
+
+                            if (!existingExercises.isEmpty()) {
+                                // 如果已有运动记录，尝试更新匹配的记录
+                                for (Map<String, Object> exerciseMap : exerciseList) {
+                                    // 检查是否有匹配的运动记录（根据日期和时间）
+                                    boolean found = false;
+                                    for (CycleExercise existingExercise : existingExercises) {
+                                        if (matchesExerciseRecord(existingExercise, exerciseMap)) {
+                                            updateCycleExerciseIfNeeded(existingExercise, exerciseMap);
+                                            found = true;
+                                            break;
+                                        }
+                                    }
+
+                                    // 如果没有找到匹配的记录，创建新记录
+                                    if (!found) {
+                                        createCycleExercise(cycle.getId(), exerciseMap);
+                                    }
+                                }
+                            } else {
+                                // 如果没有运动记录，创建新记录
+                                for (Map<String, Object> exerciseMap : exerciseList) {
+                                    createCycleExercise(cycle.getId(), exerciseMap);
                                 }
                             }
                         }
@@ -357,21 +432,24 @@ public class InquiryServiceImpl implements InquiryService {
                     // 用户没有激活中的健身周期，创建新的健身周期、饮食和运动计划
                     if (responseMap.containsKey("fitnessCycle")) {
                         // 创建新的健身周期
-                        FitnessCycle newCycle = createFitnessCycle(userId, (Map<String, Object>) responseMap.get("fitnessCycle"));
+                        FitnessCycle newCycle = createFitnessCycle(userId,
+                                (Map<String, Object>) responseMap.get("fitnessCycle"));
                         if (newCycle != null) {
                             // 创建饮食记录
                             if (responseMap.containsKey("cycleDiet")) {
-                                List<Map<String, Object>> dietList = (List<Map<String, Object>>) responseMap.get("cycleDiet");
+                                List<Map<String, Object>> dietList = (List<Map<String, Object>>) responseMap
+                                        .get("cycleDiet");
                                 if (dietList != null && !dietList.isEmpty()) {
                                     for (Map<String, Object> dietMap : dietList) {
                                         createCycleDiet(newCycle.getId(), dietMap);
                                     }
                                 }
                             }
-                            
+
                             // 创建运动记录
                             if (responseMap.containsKey("cycleExercise")) {
-                                List<Map<String, Object>> exerciseList = (List<Map<String, Object>>) responseMap.get("cycleExercise");
+                                List<Map<String, Object>> exerciseList = (List<Map<String, Object>>) responseMap
+                                        .get("cycleExercise");
                                 if (exerciseList != null && !exerciseList.isEmpty()) {
                                     for (Map<String, Object> exerciseMap : exerciseList) {
                                         createCycleExercise(newCycle.getId(), exerciseMap);
@@ -418,17 +496,7 @@ public class InquiryServiceImpl implements InquiryService {
             user.setBodyFatRate(((Number) userMap.get("bodyFatRate")).doubleValue());
             updated = true;
         }
-
-        if (userMap.containsKey("scaleDeviceId") && userMap.get("scaleDeviceId") != null) {
-            user.setScaleDeviceId((String) userMap.get("scaleDeviceId"));
-            updated = true;
-        }
-
-        if (userMap.containsKey("speakerDeviceId") && userMap.get("speakerDeviceId") != null) {
-            user.setSpeakerDeviceId((String) userMap.get("speakerDeviceId"));
-            updated = true;
-        }
-
+ 
         if (updated) {
             userRepository.save(user);
         }
@@ -607,14 +675,14 @@ public class InquiryServiceImpl implements InquiryService {
         try {
             FitnessCycle cycle = new FitnessCycle();
             cycle.setUserId(userId);
-            
+
             // 生成周期编号
             String cycleNumber = "CYCLE-" + userId + "-" + System.currentTimeMillis();
             cycle.setCycleNumber(cycleNumber);
-            
+
             // 设置状态为激活
             cycle.setStatus(FitnessCycle.CycleStatus.ACTIVE);
-            
+
             // 设置开始时间
             LocalDateTime startTime = LocalDateTime.now();
             if (cycleMap.containsKey("startTime") && cycleMap.get("startTime") != null) {
@@ -632,7 +700,7 @@ public class InquiryServiceImpl implements InquiryService {
                 }
             }
             cycle.setStartTime(startTime);
-            
+
             // 设置结束时间
             if (cycleMap.containsKey("endTime") && cycleMap.get("endTime") != null) {
                 try {
@@ -649,7 +717,7 @@ public class InquiryServiceImpl implements InquiryService {
                     // 日期格式错误，忽略
                 }
             }
-            
+
             // 设置持续天数
             if (cycleMap.containsKey("durationDays") && cycleMap.get("durationDays") != null) {
                 try {
@@ -659,7 +727,8 @@ public class InquiryServiceImpl implements InquiryService {
                 }
             } else if (cycle.getEndTime() != null) {
                 // 如果没有明确设置持续天数，但有结束时间，计算持续天数
-                long days = ChronoUnit.DAYS.between(cycle.getStartTime().toLocalDate(), cycle.getEndTime().toLocalDate());
+                long days = ChronoUnit.DAYS.between(cycle.getStartTime().toLocalDate(),
+                        cycle.getEndTime().toLocalDate());
                 cycle.setDurationDays((int) days);
             } else {
                 // 默认设置为7天
@@ -667,7 +736,7 @@ public class InquiryServiceImpl implements InquiryService {
                 // 设置结束时间为开始时间加7天
                 cycle.setEndTime(cycle.getStartTime().plusDays(7));
             }
-            
+
             // 设置目标
             if (cycleMap.containsKey("goal") && cycleMap.get("goal") != null) {
                 cycle.setGoal((String) cycleMap.get("goal"));
@@ -675,7 +744,7 @@ public class InquiryServiceImpl implements InquiryService {
                 // 目标是必填字段，设置默认值
                 cycle.setGoal("保持健康");
             }
-            
+
             // 设置开始体重
             if (cycleMap.containsKey("startWeight") && cycleMap.get("startWeight") != null) {
                 try {
@@ -684,7 +753,7 @@ public class InquiryServiceImpl implements InquiryService {
                     // 类型转换错误，忽略
                 }
             }
-            
+
             // 设置结束体重
             if (cycleMap.containsKey("endWeight") && cycleMap.get("endWeight") != null) {
                 try {
@@ -693,7 +762,7 @@ public class InquiryServiceImpl implements InquiryService {
                     // 类型转换错误，忽略
                 }
             }
-            
+
             // 保存健身周期
             return fitnessCycleRepository.save(cycle);
         } catch (Exception e) {
@@ -701,7 +770,7 @@ public class InquiryServiceImpl implements InquiryService {
             return null;
         }
     }
-    
+
     /**
      * 创建新的饮食记录
      */
@@ -709,7 +778,7 @@ public class InquiryServiceImpl implements InquiryService {
         try {
             CycleDiet diet = new CycleDiet();
             diet.setCycleId(cycleId);
-            
+
             // 设置食物日期
             LocalDate foodDate = LocalDate.now();
             if (dietMap.containsKey("foodDate") && dietMap.get("foodDate") != null) {
@@ -721,7 +790,7 @@ public class InquiryServiceImpl implements InquiryService {
                 }
             }
             diet.setFoodDate(foodDate);
-            
+
             // 设置用餐时间
             if (dietMap.containsKey("mealTime") && dietMap.get("mealTime") != null) {
                 try {
@@ -735,7 +804,7 @@ public class InquiryServiceImpl implements InquiryService {
                 // 用餐时间是必填字段，设置默认值
                 diet.setMealTime(CycleDiet.MealTime.BREAKFAST);
             }
-            
+
             // 设置食物量
             if (dietMap.containsKey("foodQuantity") && dietMap.get("foodQuantity") != null) {
                 try {
@@ -744,7 +813,7 @@ public class InquiryServiceImpl implements InquiryService {
                     // 类型转换错误，忽略
                 }
             }
-            
+
             // 设置食物类别
             if (dietMap.containsKey("foodCategory") && dietMap.get("foodCategory") != null) {
                 diet.setFoodCategory((String) dietMap.get("foodCategory"));
@@ -752,7 +821,7 @@ public class InquiryServiceImpl implements InquiryService {
                 // 食物类别是必填字段，设置默认值
                 diet.setFoodCategory("其他");
             }
-            
+
             // 设置卡路里
             if (dietMap.containsKey("calories") && dietMap.get("calories") != null) {
                 try {
@@ -761,17 +830,17 @@ public class InquiryServiceImpl implements InquiryService {
                     // 类型转换错误，忽略
                 }
             }
-            
+
             // 设置烹饪方法
             if (dietMap.containsKey("cookingMethod") && dietMap.get("cookingMethod") != null) {
                 diet.setCookingMethod((String) dietMap.get("cookingMethod"));
             }
-            
+
             // 设置饮食内容
             if (dietMap.containsKey("dietContent") && dietMap.get("dietContent") != null) {
                 diet.setDietContent((String) dietMap.get("dietContent"));
             }
-            
+
             // 设置卡路里摄入量
             if (dietMap.containsKey("caloriesIntake") && dietMap.get("caloriesIntake") != null) {
                 try {
@@ -780,12 +849,12 @@ public class InquiryServiceImpl implements InquiryService {
                     // 类型转换错误，忽略
                 }
             }
-            
+
             // 设置饮食描述
             if (dietMap.containsKey("dietDescription") && dietMap.get("dietDescription") != null) {
                 diet.setDietDescription((String) dietMap.get("dietDescription"));
             }
-            
+
             // 保存饮食记录
             return cycleDietRepository.save(diet);
         } catch (Exception e) {
@@ -793,7 +862,7 @@ public class InquiryServiceImpl implements InquiryService {
             return null;
         }
     }
-    
+
     /**
      * 创建新的运动记录
      */
@@ -801,7 +870,7 @@ public class InquiryServiceImpl implements InquiryService {
         try {
             CycleExercise exercise = new CycleExercise();
             exercise.setCycleId(cycleId);
-            
+
             // 设置运动日期
             LocalDate exerciseDate = LocalDate.now();
             if (exerciseMap.containsKey("exerciseDate") && exerciseMap.get("exerciseDate") != null) {
@@ -813,7 +882,7 @@ public class InquiryServiceImpl implements InquiryService {
                 }
             }
             exercise.setExerciseDate(exerciseDate);
-            
+
             // 设置运动时间
             LocalTime exerciseTime = LocalTime.now();
             if (exerciseMap.containsKey("exerciseTime") && exerciseMap.get("exerciseTime") != null) {
@@ -825,7 +894,7 @@ public class InquiryServiceImpl implements InquiryService {
                 }
             }
             exercise.setExerciseTime(exerciseTime);
-            
+
             // 设置运动内容
             if (exerciseMap.containsKey("exerciseContent") && exerciseMap.get("exerciseContent") != null) {
                 exercise.setExerciseContent((String) exerciseMap.get("exerciseContent"));
@@ -833,7 +902,7 @@ public class InquiryServiceImpl implements InquiryService {
                 // 运动内容是必填字段，设置默认值
                 exercise.setExerciseContent("常规锻炼");
             }
-            
+
             // 设置运动时长
             if (exerciseMap.containsKey("durationMinutes") && exerciseMap.get("durationMinutes") != null) {
                 try {
@@ -842,7 +911,7 @@ public class InquiryServiceImpl implements InquiryService {
                     // 类型转换错误，忽略
                 }
             }
-            
+
             // 设置消耗卡路里
             if (exerciseMap.containsKey("caloriesBurned") && exerciseMap.get("caloriesBurned") != null) {
                 try {
@@ -851,12 +920,12 @@ public class InquiryServiceImpl implements InquiryService {
                     // 类型转换错误，忽略
                 }
             }
-            
+
             // 设置运动描述
             if (exerciseMap.containsKey("exerciseDescription") && exerciseMap.get("exerciseDescription") != null) {
                 exercise.setExerciseDescription((String) exerciseMap.get("exerciseDescription"));
             }
-            
+
             // 设置计划运动时间
             if (exerciseMap.containsKey("plannedExerciseTime") && exerciseMap.get("plannedExerciseTime") != null) {
                 try {
@@ -873,12 +942,72 @@ public class InquiryServiceImpl implements InquiryService {
                     // 日期时间格式错误，忽略
                 }
             }
-            
+
             // 保存运动记录
             return cycleExerciseRepository.save(exercise);
         } catch (Exception e) {
             // 创建运动记录失败
             return null;
+        }
+    }
+
+    /**
+     * 检查饮食记录是否匹配
+     * 
+     * @param diet    现有饮食记录
+     * @param dietMap 新的饮食数据
+     * @return 是否匹配
+     */
+    private boolean matchesDietRecord(CycleDiet diet, Map<String, Object> dietMap) {
+        // 如果没有日期或用餐时间信息，无法匹配
+        if (!dietMap.containsKey("foodDate") || !dietMap.containsKey("mealTime")) {
+            return false;
+        }
+
+        try {
+            // 获取日期
+            String foodDateStr = (String) dietMap.get("foodDate");
+            LocalDate foodDate = LocalDate.parse(foodDateStr);
+
+            // 获取用餐时间
+            String mealTimeStr = (String) dietMap.get("mealTime");
+            CycleDiet.MealTime mealTime = CycleDiet.MealTime.valueOf(mealTimeStr);
+
+            // 检查日期和用餐时间是否匹配
+            return diet.getFoodDate().equals(foodDate) && diet.getMealTime() == mealTime;
+        } catch (Exception e) {
+            // 解析错误，无法匹配
+            return false;
+        }
+    }
+
+    /**
+     * 检查运动记录是否匹配
+     * 
+     * @param exercise    现有运动记录
+     * @param exerciseMap 新的运动数据
+     * @return 是否匹配
+     */
+    private boolean matchesExerciseRecord(CycleExercise exercise, Map<String, Object> exerciseMap) {
+        // 如果没有日期或时间信息，无法匹配
+        if (!exerciseMap.containsKey("exerciseDate") || !exerciseMap.containsKey("exerciseTime")) {
+            return false;
+        }
+
+        try {
+            // 获取日期
+            String exerciseDateStr = (String) exerciseMap.get("exerciseDate");
+            LocalDate exerciseDate = LocalDate.parse(exerciseDateStr);
+
+            // 获取时间
+            String exerciseTimeStr = (String) exerciseMap.get("exerciseTime");
+            LocalTime exerciseTime = LocalTime.parse(exerciseTimeStr);
+
+            // 检查日期和时间是否匹配
+            return exercise.getExerciseDate().equals(exerciseDate) && exercise.getExerciseTime().equals(exerciseTime);
+        } catch (Exception e) {
+            // 解析错误，无法匹配
+            return false;
         }
     }
 }
